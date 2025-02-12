@@ -3,23 +3,26 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 'use strict';
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.downloadExplorerAppx = void 0;
-const debug = require("debug");
-const extract = require("extract-zip");
-const fs = require("fs-extra");
-const path = require("path");
-const product = require("../../product.json");
+exports.downloadExplorerAppx = downloadExplorerAppx;
+const fs_1 = __importDefault(require("fs"));
+const debug_1 = __importDefault(require("debug"));
+const extract_zip_1 = __importDefault(require("extract-zip"));
+const path_1 = __importDefault(require("path"));
 const get_1 = require("@electron/get");
-const d = debug('explorer-appx-fetcher');
+const root = path_1.default.dirname(path_1.default.dirname(__dirname));
+const d = (0, debug_1.default)('explorer-appx-fetcher');
 async function downloadExplorerAppx(outDir, quality = 'stable', targetArch = 'x64') {
     const fileNamePrefix = quality === 'insider' ? 'code_insiders' : 'code';
     const fileName = `${fileNamePrefix}_explorer_${targetArch}.zip`;
-    if (await fs.pathExists(path.resolve(outDir, 'resources.pri'))) {
+    if (await fs_1.default.existsSync(path_1.default.resolve(outDir, 'resources.pri'))) {
         return;
     }
-    if (!await fs.pathExists(outDir)) {
-        await fs.mkdirp(outDir);
+    if (!await fs_1.default.existsSync(outDir)) {
+        await fs_1.default.mkdirSync(outDir, { recursive: true });
     }
     d(`downloading ${fileName}`);
     const artifact = await (0, get_1.downloadArtifact)({
@@ -34,23 +37,20 @@ async function downloadExplorerAppx(outDir, quality = 'stable', targetArch = 'x6
         }
     });
     d(`unpacking from ${fileName}`);
-    await extract(artifact, { dir: outDir });
+    await (0, extract_zip_1.default)(artifact, { dir: fs_1.default.realpathSync(outDir) });
 }
-exports.downloadExplorerAppx = downloadExplorerAppx;
-async function main() {
-    const outputDir = process.env['VSCODE_EXPLORER_APPX_DIR'];
-    let arch = process.env['VSCODE_ARCH'];
+async function main(outputDir) {
+    const arch = process.env['VSCODE_ARCH'];
     if (!outputDir) {
         throw new Error('Required build env not set');
     }
-    if (arch === 'ia32') {
-        arch = 'x86';
-    }
+    const product = JSON.parse(fs_1.default.readFileSync(path_1.default.join(root, 'product.json'), 'utf8'));
     await downloadExplorerAppx(outputDir, product.quality, arch);
 }
 if (require.main === module) {
-    main().catch(err => {
+    main(process.argv[2]).catch(err => {
         console.error(err);
         process.exit(1);
     });
 }
+//# sourceMappingURL=explorer-appx-fetcher.js.map
