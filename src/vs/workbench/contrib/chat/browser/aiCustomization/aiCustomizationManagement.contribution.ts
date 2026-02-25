@@ -22,6 +22,7 @@ import {
 	AI_CUSTOMIZATION_MANAGEMENT_EDITOR_INPUT_ID,
 	AICustomizationManagementCommands,
 	AICustomizationManagementItemMenuId,
+	AICustomizationManagementSection,
 } from './aiCustomizationManagement.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../../common/contributions.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
@@ -195,8 +196,8 @@ registerAction2(class extends Action2 {
 		const fileName = basename(uri);
 		const storage = extractStorage(context);
 
-		// Extension files cannot be deleted
-		if (storage === PromptsStorage.extension) {
+		// Extension and plugin files cannot be deleted
+		if (storage === PromptsStorage.extension || storage === PromptsStorage.plugin) {
 			await dialogService.info(
 				localize('cannotDeleteExtension', "Cannot Delete Extension File"),
 				localize('cannotDeleteExtensionDetail', "Files provided by extensions cannot be deleted. You can disable the extension if you no longer want to use this customization.")
@@ -297,10 +298,13 @@ class AICustomizationManagementActionsContribution extends Disposable implements
 				});
 			}
 
-			async run(accessor: ServicesAccessor): Promise<void> {
+			async run(accessor: ServicesAccessor, section?: AICustomizationManagementSection): Promise<void> {
 				const editorService = accessor.get(IEditorService);
 				const input = AICustomizationManagementEditorInput.getOrCreate();
-				await editorService.openEditor(input, { pinned: true }, MODAL_GROUP);
+				const pane = await editorService.openEditor(input, { pinned: true }, MODAL_GROUP);
+				if (section && pane instanceof AICustomizationManagementEditor) {
+					pane.selectSectionById(section);
+				}
 			}
 		}));
 	}
