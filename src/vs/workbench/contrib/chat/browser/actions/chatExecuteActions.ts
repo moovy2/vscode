@@ -185,6 +185,14 @@ const requestInProgressOrPendingToolCall = ContextKeyExpr.or(
 	ChatContextKeys.Editing.hasToolConfirmation,
 	ChatContextKeys.Editing.hasQuestionCarousel,
 );
+const requestInProgressWithoutInput = ContextKeyExpr.and(
+	ChatContextKeys.requestInProgress,
+	ChatContextKeys.inputHasText.negate(),
+);
+const pendingToolCall = ContextKeyExpr.or(
+	ChatContextKeys.Editing.hasToolConfirmation,
+	ChatContextKeys.Editing.hasQuestionCarousel,
+);
 const whenNotInProgress = ChatContextKeys.requestInProgress.negate();
 
 export class ChatSubmitAction extends SubmitAction {
@@ -469,9 +477,10 @@ export class OpenModePickerAction extends Action2 {
 						ContextKeyExpr.or(
 							ChatContextKeys.lockedToCodingAgent.negate(),
 							ChatContextKeys.chatSessionHasCustomAgentTarget),
-						// Hide in welcome view when session type is not local
+						// Show in welcome view for local sessions or sessions with custom agent target
 						ContextKeyExpr.or(
 							ChatContextKeys.inAgentSessionsWelcome.negate(),
+							ChatContextKeys.chatSessionHasCustomAgentTarget,
 							ChatContextKeys.agentSessionType.isEqualTo(AgentSessionProviders.Local))),
 					group: 'navigation',
 				},
@@ -807,7 +816,7 @@ class SendToNewChatAction extends Action2 {
 
 		// Cancel any in-progress request before clearing
 		if (widget.viewModel) {
-			chatService.cancelCurrentRequestForSession(widget.viewModel.sessionResource);
+			chatService.cancelCurrentRequestForSession(widget.viewModel.sessionResource, 'newSessionAction');
 		}
 
 		if (widget.viewModel?.model) {
@@ -838,7 +847,7 @@ export class CancelAction extends Action2 {
 			menu: [{
 				id: MenuId.ChatExecute,
 				when: ContextKeyExpr.and(
-					requestInProgressOrPendingToolCall,
+					ContextKeyExpr.or(requestInProgressWithoutInput, pendingToolCall),
 					ChatContextKeys.remoteJobCreating.negate(),
 					ChatContextKeys.currentlyEditing.negate(),
 				),
@@ -886,7 +895,7 @@ export class CancelAction extends Action2 {
 
 		const chatService = accessor.get(IChatService);
 		if (widget.viewModel) {
-			chatService.cancelCurrentRequestForSession(widget.viewModel.sessionResource);
+			chatService.cancelCurrentRequestForSession(widget.viewModel.sessionResource, 'cancelAction');
 		} else {
 			telemetryService.publicLog2<ChatStopCancellationNoopEvent, ChatStopCancellationNoopClassification>(ChatStopCancellationNoopEventName, {
 				source: 'cancelAction',

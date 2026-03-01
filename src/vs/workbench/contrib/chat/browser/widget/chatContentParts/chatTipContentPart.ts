@@ -38,6 +38,7 @@ export class ChatTipContentPart extends Disposable {
 	private readonly _toolbar = this._register(new MutableDisposable<MenuWorkbenchToolBar>());
 
 	private readonly _inChatTipContextKey: IContextKey<boolean>;
+	private readonly _multipleChatTipsContextKey: IContextKey<boolean>;
 
 	constructor(
 		tip: IChatTip,
@@ -59,15 +60,23 @@ export class ChatTipContentPart extends Disposable {
 		this.domNode.setAttribute('aria-roledescription', localize('chatTipRoleDescription', "tip"));
 
 		this._inChatTipContextKey = ChatContextKeys.inChatTip.bindTo(this._contextKeyService);
+		this._multipleChatTipsContextKey = ChatContextKeys.multipleChatTips.bindTo(this._contextKeyService);
 		const focusTracker = this._register(dom.trackFocus(this.domNode));
 		this._register(focusTracker.onDidFocus(() => this._inChatTipContextKey.set(true)));
 		this._register(focusTracker.onDidBlur(() => this._inChatTipContextKey.set(false)));
-		this._register({ dispose: () => this._inChatTipContextKey.reset() });
+		this._register({
+			dispose: () => {
+				this._inChatTipContextKey.reset();
+				this._multipleChatTipsContextKey.reset();
+			}
+		});
 
 		this._renderTip(tip);
 
 		this._register(this._chatTipService.onDidDismissTip(() => {
-			const nextTip = this._chatTipService.navigateToNextTip();
+			// Use getNextEligibleTip instead of navigateToNextTip to show the next
+			// available tip even if it's the only one left (no multiple-tip requirement)
+			const nextTip = this._chatTipService.getNextEligibleTip();
 			if (nextTip) {
 				this._renderTip(nextTip);
 				dom.runAtThisOrScheduleAtNextAnimationFrame(dom.getWindow(this.domNode), () => this.focus());
@@ -113,6 +122,7 @@ export class ChatTipContentPart extends Disposable {
 	private _renderTip(tip: IChatTip): void {
 		dom.clearNode(this.domNode);
 		this._toolbar.clear();
+		this._multipleChatTipsContextKey.set(this._chatTipService.hasMultipleTips());
 
 		const markdownContent = this._renderer.render(tip.content, {
 			actionHandler: (link, md) => { this._handleTipAction(link, md).catch(onUnexpectedError); }
@@ -166,6 +176,7 @@ registerAction2(class PreviousTipAction extends Action2 {
 			id: 'workbench.action.chat.previousTip',
 			title: localize2('chatTip.previous', "Previous tip"),
 			icon: Codicon.chevronLeft,
+			precondition: ChatContextKeys.multipleChatTips,
 			f1: false,
 			menu: [{
 				id: MenuId.ChatTipToolbar,
@@ -187,6 +198,7 @@ registerAction2(class NextTipAction extends Action2 {
 			id: 'workbench.action.chat.nextTip',
 			title: localize2('chatTip.next', "Next tip"),
 			icon: Codicon.chevronRight,
+			precondition: ChatContextKeys.multipleChatTips,
 			f1: false,
 			menu: [{
 				id: MenuId.ChatTipToolbar,

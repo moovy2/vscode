@@ -300,6 +300,7 @@ export class ChatSessionsService extends Disposable implements IChatSessionsServ
 	private readonly _sessionTypeInputPlaceholders: Map<string, string> = new Map();
 
 	private readonly _sessions = new ResourceMap<ContributedChatSessionData>();
+	private readonly _resourceAliases = new ResourceMap<URI>(); // real resource -> untitled resource
 
 	private readonly _hasCanDelegateProvidersKey: IContextKey<boolean>;
 
@@ -1038,8 +1039,8 @@ export class ChatSessionsService extends Disposable implements IChatSessionsServ
 		}
 
 		let session: IChatSession;
-		if (sessionResource.path.startsWith('/untitled')) {
-			const newSessionOptions = this.getNewSessionOptionsForSessionType(resolvedType);
+		const newSessionOptions = this.getNewSessionOptionsForSessionType(resolvedType);
+		if (sessionResource.path.startsWith('/untitled') && newSessionOptions) {
 			session = {
 				sessionResource: sessionResource,
 				onWillDispose: Event.None,
@@ -1078,18 +1079,31 @@ export class ChatSessionsService extends Disposable implements IChatSessionsServ
 	}
 
 	public hasAnySessionOptions(sessionResource: URI): boolean {
-		const session = this._sessions.get(sessionResource);
+		const session = this._sessions.get(this._resolveResource(sessionResource));
 		return !!session && !!session.options && Object.keys(session.options).length > 0;
 	}
 
 	public getSessionOption(sessionResource: URI, optionId: string): string | IChatSessionProviderOptionItem | undefined {
-		const session = this._sessions.get(sessionResource);
+		const session = this._sessions.get(this._resolveResource(sessionResource));
 		return session?.getOption(optionId);
 	}
 
 	public setSessionOption(sessionResource: URI, optionId: string, value: string | IChatSessionProviderOptionItem): boolean {
-		const session = this._sessions.get(sessionResource);
+		const session = this._sessions.get(this._resolveResource(sessionResource));
 		return !!session?.setOption(optionId, value);
+	}
+
+	/**
+	 * Resolve a resource through the alias map. If the resource is a real
+	 * resource that has been aliased to an untitled resource, return the
+	 * untitled resource (the canonical key in {@link _sessions}).
+	 */
+	private _resolveResource(resource: URI): URI {
+		return this._resourceAliases.get(resource) ?? resource;
+	}
+
+	public registerSessionResourceAlias(untitledResource: URI, realResource: URI): void {
+		this._resourceAliases.set(realResource, untitledResource);
 	}
 
 	/**
@@ -1134,7 +1148,7 @@ export class ChatSessionsService extends Disposable implements IChatSessionsServ
 		for (const u of updates) {
 			this.setSessionOption(sessionResource, u.optionId, u.value);
 		}
-		this._onDidChangeSessionOptions.fire(sessionResource);
+		this._onDidChangeSessionOptions.fire(this._resolveResource(sessionResource));
 		this._logService.trace(`[ChatSessionsService] notifySessionOptionsChange: finished for ${sessionResource}`);
 	}
 
@@ -1259,6 +1273,7 @@ export enum ChatSessionPosition {
 type NewChatSessionSendOptions = {
 	readonly prompt: string;
 	readonly attachedContext?: IChatRequestVariableEntry[];
+	readonly initialSessionOptions?: ReadonlyArray<{ optionId: string; value: string | { id: string; name: string } }>;
 };
 
 export type NewChatSessionOpenOptions = {
@@ -1322,6 +1337,17 @@ async function openChatSession(accessor: ServicesAccessor, openOptions: NewChatS
 	// Send initial prompt if provided
 	if (chatSendOptions) {
 		try {
+			// Set initial session options on the model before sending the request,
+			// so that the contributed session provider can read them.
+			if (chatSendOptions.initialSessionOptions) {
+				const model = chatService.getSession(resource);
+				if (model?.contributedChatSession) {
+					model.setContributedChatSession({
+						...model.contributedChatSession,
+						initialSessionOptions: chatSendOptions.initialSessionOptions,
+					});
+				}
+			}
 			await chatService.sendRequest(resource, chatSendOptions.prompt, { agentIdSilent: openOptions.type, attachedContext: chatSendOptions.attachedContext });
 		} catch (e) {
 			logService.error(`Failed to send initial request to '${openOptions.type}' chat session with contextOptions: ${JSON.stringify(chatSendOptions)}`, e);

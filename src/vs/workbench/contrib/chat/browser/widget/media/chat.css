@@ -282,7 +282,11 @@
 }
 
 .interactive-item-container > .value .chat-used-context {
-	margin-bottom: 10px;
+	margin-bottom: 16px;
+}
+
+.interactive-item-container > .value .chat-used-context .chat-used-context-list {
+	margin-bottom: 0;
 }
 
 .interactive-item-container .value .rendered-markdown:not(:has(.chat-extensions-content-part)) {
@@ -612,7 +616,7 @@
 	}
 
 	&:not(:last-child) {
-		margin-bottom: 12px;
+		margin-bottom: 16px;
 	}
 }
 
@@ -1430,6 +1434,18 @@ have to be updated for changes to the rules above, or to support more deeply nes
 .action-widget .monaco-list-row.chat-model-picker-unavailable .description a:hover,
 .action-widget .monaco-list-row.chat-model-picker-unavailable .description a:active {
 	color: var(--vscode-textLink-activeForeground);
+}
+
+.action-widget .action-list-filter-input.chat-model-picker-filter-input,
+.action-widget .action-list-filter-input.chat-model-picker-filter-input:focus {
+	outline: none;
+	box-shadow: none;
+	border-color: transparent;
+	background-color: transparent;
+}
+
+.action-widget .action-list-filter:has(.chat-model-picker-filter-input) {
+	margin-bottom: 4px;
 }
 
 .interactive-session .chat-input-toolbars .codicon-debug-stop {
@@ -2313,6 +2329,7 @@ have to be updated for changes to the rules above, or to support more deeply nes
 .show-checkmarks .progress-container > .codicon.codicon-check,
 .progress-container.show-checkmarks > .codicon.codicon-check {
 	display: inline-flex;
+	margin-left: 4px;
 }
 
 .interactive-item-container .chat-command-button {
@@ -2721,14 +2738,24 @@ have to be updated for changes to the rules above, or to support more deeply nes
 	}
 
 	.interactive-request .header.partially-disabled .detail-container {
-		margin-left: 4px;
+		margin-left: 0px;
 	}
 
 	.interactive-item-container .header .detail .codicon-check {
 		margin-right: 7px;
 		vertical-align: middle;
 		font-size: 11px;
+		display: none;
 	}
+
+	.interactive-item-container .header.partially-disabled .detail.show-checkmarks {
+		margin-left: 4px;
+
+		.codicon-check {
+			display: inline;
+		}
+	}
+
 
 	.request-hover {
 		position: absolute;
